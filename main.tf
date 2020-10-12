@@ -1,13 +1,50 @@
+terraform {
+  required_version = ">= 0.13, < 0.14"
+}
+
 provider "aws" {
-    region = "us-east-1"
+  region = "us-east-1"
+
+  # Allow any 3.x version of the AWS Provider
+  version = "~> 3.0"
 }
 
 resource "aws_instance" "example" {
-    ami = "ami-0947d2ba12ee1ff75"
-    instance_type = "t2.micro"
+  ami                    = "ami-0817d428a6fb68645"
+  instance_type          = "t2.micro"
+  vpc_security_group_ids = [aws_security_group.instance.id]
+
+  user_data = <<-EOF
+            #!/bin/bash
+            echo "Hello, World!" > index.html
+            nohup busybox httpd -f -p ${var.server_port} &
+            EOF
 
 
-tags = {
+
+  tags = {
     Name = "terraform-example"
-    }   
+  }
+}
+
+resource "aws_security_group" "instance" {
+  name = "terraform-example-instance"
+
+  ingress {
+    from_port   = var.server_port
+    to_port     = var.server_port
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+variable "server_port" {
+  description = "The port the server will use for HTTP requests"
+  type        = number
+  default     = 8080
+}
+
+output "public_ip" {
+  value       = aws_instance.example.public_ip
+  description = "The public IP address of the web server"
 }
